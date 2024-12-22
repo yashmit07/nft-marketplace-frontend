@@ -1,44 +1,71 @@
+// src/app/providers.tsx
 'use client';
 
-import * as React from 'react';
-import {
-  RainbowKitProvider,
-  getDefaultWallets,
-  connectorsForWallets,
-} from '@rainbow-me/rainbowkit';
-import { configureChains, createConfig, WagmiConfig } from 'wagmi';
+import { PropsWithChildren, useEffect, useState } from 'react';
+import { WagmiProvider, createConfig } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { sepolia } from 'wagmi/chains';
-import { publicProvider } from 'wagmi/providers/public';
+import { http } from 'viem';
+import { 
+  metaMask,
+  coinbaseWallet,
+  walletConnect,
+} from 'wagmi/connectors';
 
-const { chains, publicClient, webSocketPublicClient } = configureChains(
-  [sepolia],
-  [publicProvider()]
-);
-
-// Get this from WalletConnect Cloud
-const projectId = 'f3a6bb4fb199b0ed3166e6a4b0e4300a';
-
-const { wallets } = getDefaultWallets({
-  appName: 'NFT Marketplace',
-  projectId,
-  chains,
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30000,
+    },
+  },
 });
 
-const connectors = connectorsForWallets([...wallets]);
+function createWagmiConfig() {
+  if (typeof window === 'undefined') return null;
 
-const wagmiConfig = createConfig({
-  autoConnect: true,
-  connectors,
-  publicClient,
-  webSocketPublicClient,
-});
+  const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID;
+  if (!projectId) throw new Error('Missing NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID');
 
-export function Providers({ children }: { children: React.ReactNode }) {
+  return createConfig({
+    chains: [sepolia],
+    transports: {
+      [sepolia.id]: http()
+    },
+    connectors: [
+      metaMask(),
+      coinbaseWallet({
+        appName: 'NFT Marketplace',
+      }),
+      walletConnect({
+        projectId,
+        metadata: {
+          name: 'NFT Marketplace',
+          description: 'NFT Marketplace Application',
+          url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+          icons: ['https://avatars.githubusercontent.com/u/37784886']
+        }
+      })
+    ]
+  });
+}
+
+export function Providers({ children }: PropsWithChildren) {
+  const [mounted, setMounted] = useState(false);
+  const [wagmiConfig] = useState(() => createWagmiConfig());
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || !wagmiConfig) return null;
+
   return (
-    <WagmiConfig config={wagmiConfig}>
-      <RainbowKitProvider chains={chains}>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
         {children}
-      </RainbowKitProvider>
-    </WagmiConfig>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }

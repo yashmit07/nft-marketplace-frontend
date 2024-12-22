@@ -1,114 +1,210 @@
+'use client';
+
 import { useState } from 'react';
-import { useContractRead, useContractWrite, useWaitForTransaction } from 'wagmi';
-import { parseEther } from 'viem';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { useAccount } from 'wagmi';
+import { readContract, writeContract } from '@wagmi/core';
+import { parseEther, formatEther, type Address } from 'viem';
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Skeleton } from "../../components/ui/skeleton";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { NFT_ABI, NFT_ADDRESS, MARKETPLACE_ABI, MARKETPLACE_ADDRESS } from '@/constants/contracts';
+import { config } from '@/config/wagmi';
 
-const NFTCard = ({ tokenId, owner }) => {
-  const [listingPrice, setListingPrice] = useState('');
-  
-  // Read NFT metadata
-  const { data: tokenURI } = useContractRead({
-    address: NFT_ADDRESS,
-    abi: NFT_ABI,
-    functionName: 'tokenURI',
-    args: [tokenId],
+interface NFTCardProps {
+  tokenId: bigint;
+  owner: boolean;
+}
+
+interface NFTListing {
+  seller: Address;
+  price: bigint;
+}
+
+export default function NFTCard({ tokenId, owner }: NFTCardProps) {
+  const { address } = useAccount();
+  const [listingPrice, setListingPrice] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tokenData, setTokenData] = useState<{ uri: string; listing: NFTListing | null }>({
+    uri: '',
+    listing: null
   });
 
-  // Read if NFT is listed
-  const { data: listing } = useContractRead({
-    address: MARKETPLACE_ADDRESS,
-    abi: MARKETPLACE_ABI,
-    functionName: 'getListing',
-    args: [tokenId],
-  });
+  // Fetch NFT data
+  const fetchNFTData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const [uri, listing] = await Promise.all([
+        readContract(config, {
+          address: NFT_ADDRESS,
+          abi: NFT_ABI,
+          functionName: 'tokenURI',
+          args: [tokenId],
+        }),
+        readContract(config, {
+          address: MARKETPLACE_ADDRESS,
+          abi: MARKETPLACE_ABI,
+          functionName: 'getListing',
+          args: [NFT_ADDRESS, tokenId],
+        }),
+      ]);
 
-  // Approve NFT for marketplace
-  const { write: approveNFT, data: approveData } = useContractWrite({
-    address: NFT_ADDRESS,
-    abi: NFT_ABI,
-    functionName: 'approve',
-    args: [MARKETPLACE_ADDRESS, tokenId],
-  });
+      setTokenData({
+        uri: uri as string,
+        listing: listing as NFTListing,
+      });
+    } catch (err) {
+      setError('Error fetching NFT data');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const { isLoading: isApprovePending } = useWaitForTransaction({
-    hash: approveData?.hash,
-  });
+  const handleApprove = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const result = await writeContract(config, {
+        address: NFT_ADDRESS,
+        abi: NFT_ABI,
+        functionName: 'approve',
+        args: [MARKETPLACE_ADDRESS, tokenId],
+      });
+      
+      console.log('Approval submitted:', result);
+    } catch (err) {
+      setError('Error approving NFT');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // List NFT
-  const { write: listNFT, data: listData } = useContractWrite({
-    address: MARKETPLACE_ADDRESS,
-    abi: MARKETPLACE_ABI,
-    functionName: 'listNFT',
-    args: [tokenId, parseEther(listingPrice || '0')],
-  });
+  const handleList = async () => {
+    if (!listingPrice) return;
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const result = await writeContract(config, {
+        address: MARKETPLACE_ADDRESS,
+        abi: MARKETPLACE_ABI,
+        functionName: 'listItem',
+        args: [NFT_ADDRESS, tokenId, parseEther(listingPrice)],
+      });
+      
+      console.log('Listing submitted:', result);
+      setListingPrice('');
+      await fetchNFTData(); // Refresh data
+    } catch (err) {
+      setError('Error listing NFT');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const { isLoading: isListPending } = useWaitForTransaction({
-    hash: listData?.hash,
-  });
+  const handleBuy = async () => {
+    if (!tokenData.listing) return;
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const result = await writeContract(config, {
+        address: MARKETPLACE_ADDRESS,
+        abi: MARKETPLACE_ABI,
+        functionName: 'buyItem',
+        args: [NFT_ADDRESS, tokenId],
+        value: tokenData.listing.price,
+      });
+      
+      console.log('Purchase submitted:', result);
+      await fetchNFTData(); // Refresh data
+    } catch (err) {
+      setError('Error buying NFT');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Buy NFT
-  const { write: buyNFT, data: buyData } = useContractWrite({
-    address: MARKETPLACE_ADDRESS,
-    abi: MARKETPLACE_ABI,
-    functionName: 'buyNFT',
-    args: [tokenId],
-    value: listing?.price,
-  });
-
-  const { isLoading: isBuyPending } = useWaitForTransaction({
-    hash: buyData?.hash,
-  });
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-4 w-[250px]" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[200px] w-full" />
+        </CardContent>
+        <CardFooter>
+          <Skeleton className="h-10 w-full" />
+        </CardFooter>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card>
       <CardHeader>
-        <CardTitle>NFT #{tokenId}</CardTitle>
-        <CardDescription>Owner: {owner}</CardDescription>
+        <CardTitle>NFT #{tokenId.toString()}</CardTitle>
       </CardHeader>
-      <CardContent>
-        {listing && listing.price ? (
-          <div className="space-y-2">
-            <p>Listed Price: {listing.price} ETH</p>
+      <CardContent className="space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {tokenData.listing && !owner ? (
+          <div className="space-y-4">
+            <p className="font-semibold">
+              Listed for {formatEther(tokenData.listing.price)} ETH
+            </p>
             <Button 
-              onClick={() => buyNFT?.()} 
-              disabled={isBuyPending}
+              onClick={handleBuy} 
+              disabled={isLoading || tokenData.listing.seller === address}
               className="w-full"
             >
-              {isBuyPending ? 'Buying...' : 'Buy NFT'}
+              {isLoading ? 'Processing...' : 'Buy Now'}
             </Button>
           </div>
-        ) : owner === true ? (
-          <div className="space-y-2">
+        ) : owner && (
+          <div className="space-y-4">
             <Input
               type="number"
-              placeholder="Price in ETH"
+              placeholder="List price in ETH"
               value={listingPrice}
               onChange={(e) => setListingPrice(e.target.value)}
               min="0"
-              step="0.01"
+              step="0.001"
             />
-            <Button 
-              onClick={() => approveNFT?.()} 
-              disabled={isApprovePending}
-              className="w-full mb-2"
-            >
-              {isApprovePending ? 'Approving...' : 'Approve'}
-            </Button>
-            <Button 
-              onClick={() => listNFT?.()} 
-              disabled={isListPending || !listingPrice}
-              className="w-full"
-            >
-              {isListPending ? 'Listing...' : 'List NFT'}
-            </Button>
+            <div className="space-y-2">
+              <Button 
+                onClick={handleApprove} 
+                disabled={isLoading}
+                className="w-full"
+                variant="outline"
+              >
+                {isLoading ? 'Approving...' : 'Approve'}
+              </Button>
+              <Button 
+                onClick={handleList} 
+                disabled={isLoading || !listingPrice}
+                className="w-full"
+              >
+                {isLoading ? 'Listing...' : 'List NFT'}
+              </Button>
+            </div>
           </div>
-        ) : null}
+        )}
       </CardContent>
     </Card>
   );
-};
-
-export default NFTCard;
+}
