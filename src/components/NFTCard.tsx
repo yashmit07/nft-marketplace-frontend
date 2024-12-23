@@ -32,7 +32,6 @@ export default function NFTCard({ tokenId, owner }: NFTCardProps) {
     listing: null
   });
 
-  // Fetch NFT data
   const fetchNFTData = async () => {
     try {
       setIsLoading(true);
@@ -53,9 +52,18 @@ export default function NFTCard({ tokenId, owner }: NFTCardProps) {
         }),
       ]);
 
+      let metadata = null;
+      try {
+        const response = await fetch(uri as string);
+        metadata = await response.json();
+      } catch (err) {
+        console.error('Error fetching metadata:', err);
+      }
+
       setTokenData({
         uri: uri as string,
         listing: listing as NFTListing,
+        metadata,
       });
     } catch (err) {
       setError('Error fetching NFT data');
@@ -160,6 +168,14 @@ export default function NFTCard({ tokenId, owner }: NFTCardProps) {
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
+        )}
+
+        {tokenData.metadata?.image && (
+          <img 
+            src={tokenData.metadata.image} 
+            alt={tokenData.metadata?.name || `NFT #${tokenId.toString()}`}
+            className="w-full h-48 object-cover rounded-lg"
+          />
         )}
 
         {tokenData.listing && !owner ? (

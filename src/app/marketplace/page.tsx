@@ -2,14 +2,14 @@
 
 import { useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import NFTGrid from '@/components/NFTGrid';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 
 export default function MarketplacePage() {
   const { isConnected } = useAccount();
   const router = useRouter();
+  const [activeView, setActiveView] = useState('marketplace');
 
   useEffect(() => {
     if (!isConnected) {
@@ -23,25 +23,46 @@ export default function MarketplacePage() {
     <div className="min-h-screen bg-gray-900">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <Tabs defaultValue="marketplace" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
-            <TabsTrigger value="marketplace">All NFTs</TabsTrigger>
-            <TabsTrigger value="owned">Your NFTs</TabsTrigger>
-            <TabsTrigger value="listed">Listed NFTs</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="marketplace">
-            <NFTGrid view="all" />
-          </TabsContent>
-          
-          <TabsContent value="owned">
-            <NFTGrid view="owned" />
-          </TabsContent>
+        <div className="space-y-8">
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => setActiveView('marketplace')}
+              className={`px-6 py-2 rounded-lg transition-colors ${
+                activeView === 'marketplace'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              All NFTs
+            </button>
+            <button
+              onClick={() => setActiveView('owned')}
+              className={`px-6 py-2 rounded-lg transition-colors ${
+                activeView === 'owned'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              Your NFTs
+            </button>
+            <button
+              onClick={() => setActiveView('listed')}
+              className={`px-6 py-2 rounded-lg transition-colors ${
+                activeView === 'listed'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              Listed NFTs
+            </button>
+          </div>
 
-          <TabsContent value="listed">
-            <NFTGrid view="listed" />
-          </TabsContent>
-        </Tabs>
+          <div className="mt-8">
+            {activeView === 'marketplace' && <NFTGrid view="all" />}
+            {activeView === 'owned' && <NFTGrid view="owned" />}
+            {activeView === 'listed' && <NFTGrid view="listed" />}
+          </div>
+        </div>
       </main>
     </div>
   );
