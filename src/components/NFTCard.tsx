@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { readContract, writeContract } from '@wagmi/core';

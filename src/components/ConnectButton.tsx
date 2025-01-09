@@ -1,7 +1,5 @@
-// components/ConnectButton.tsx
 'use client';
 
-import { useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 import { Button } from "../../components/ui/button";
 import WalletModal from './WalletModal';
