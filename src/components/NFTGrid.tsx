@@ -130,6 +130,10 @@ export default function NFTGrid({ view }: NFTGridProps) {
         description: "Please wait for confirmation...",
       });
       
+      if (!publicClient) {
+        throw new Error("Public client is not initialized");
+      }
+      
       const receipt = await publicClient.waitForTransactionReceipt({
         hash,
       });

@@ -23,14 +23,25 @@ interface NFTListing {
   price: bigint;
 }
 
+interface NFTMetadata {
+  image?: string;
+  name?: string;
+  // Add other metadata properties you expect to receive
+}
+
 export default function NFTCard({ tokenId, owner }: NFTCardProps) {
   const { address } = useAccount();
   const [listingPrice, setListingPrice] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tokenData, setTokenData] = useState<{ uri: string; listing: NFTListing | null }>({
+  const [tokenData, setTokenData] = useState<{
+    uri: string;
+    listing: NFTListing | null;
+    metadata: NFTMetadata | null;
+  }>({
     uri: '',
-    listing: null
+    listing: null,
+    metadata: null
   });
 
   const fetchNFTData = async () => {
