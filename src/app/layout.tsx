@@ -18,11 +18,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} min-h-screen bg-gradient-to-b from-gray-900 to-black text-white antialiased`}>
+      <body className={inter.className}>
         <Providers>
-          <div className="flex min-h-screen flex-col">
-            {children}
-          </div>
+          {children}
           <Toaster />
         </Providers>
       </body>
